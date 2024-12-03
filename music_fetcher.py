@@ -1,34 +1,33 @@
 import os
-import yt_dlp
 import logging
+import yt_dlp
 
 # Настройка логирования
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.DEBUG,  # Уровень логов: DEBUG для максимальной информации
     format="%(asctime)s - %(levelname)s - %(message)s",
-    filename="bot.log",
-    filemode="a"
+    filename="bot.log",  # Логи будут записываться в файл bot.log
+    filemode="a"  # Логи добавляются в файл, а не перезаписываются
 )
 
+# Папка для загрузки файлов
 DOWNLOAD_DIR = "downloads"
 
-# Укажите путь к ffmpeg
-# Замените на полный путь к директории с `ffmpeg` и `ffprobe`
-FFMPEG_PATH = "C:/ffmpeg-7.1-full_build/bin/ffmpeg.exe"  # Например, для Windows
-FFPROBE_PATH = "C:/ffmpeg-7.1-full_build/bin/ffprobe.exe"  # Обычно находится в той же директории, что и ffmpeg
+# Убедимся, что папка загрузки существует
+if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
 
 def download_song(song_name: str) -> str:
     """
     Ищет и скачивает песню по названию с YouTube.
-    Возвращает путь к MP3-файлу.
+    Возвращает путь к MP3-файлу или None, если произошла ошибка.
     """
     logging.info(f"Запрос на загрузку песни: {song_name}")
 
-    if not os.path.exists(DOWNLOAD_DIR):
-        os.makedirs(DOWNLOAD_DIR)
-        logging.debug(f"Создана директория для загрузки: {DOWNLOAD_DIR}")
-    
+    # Поисковый запрос для YouTube
     search_query = f"{song_name} audio"
+
+    # Настройки yt-dlp
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
@@ -37,17 +36,34 @@ def download_song(song_name: str) -> str:
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'quiet': False,
-        'ffmpeg_location': FFMPEG_PATH  # Указание пути к ffmpeg
+        'quiet': False,  # Показывать процесс загрузки
+        'ffmpeg_location': '/usr/bin/ffmpeg',  # Указываем путь к FFmpeg
     }
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            logging.debug(f"Ищем: {search_query}")
-            info = ydl.extract_info(f"ytsearch:{search_query}", download=True)
-            file_path = ydl.prepare_filename(info['entries'][0]).replace(".webm", ".mp3").replace(".m4a", ".mp3")
-            logging.info(f"Загрузка завершена: {file_path}")
-            return file_path
+            logging.info(f"Ищем: {search_query}")
+            
+            # Выполняем поиск
+            info = ydl.extract_info(f"ytsearch:{search_query}", download=False)
+            logging.debug(f"Результаты поиска: {info}")
+
+            if 'entries' in info and len(info['entries']) > 0:
+                # Берем первый результат из поиска
+                first_result = info['entries'][0]
+                logging.info(f"Найден результат: {first_result['title']}")
+
+                # Скачиваем файл
+                ydl.download([first_result['webpage_url']])
+
+                # Возвращаем путь к файлу
+                file_path = ydl.prepare_filename(first_result).replace(".webm", ".mp3").replace(".m4a", ".mp3")
+                logging.info(f"Файл загружен: {file_path}")
+                return file_path
+            else:
+                logging.warning("Ничего не найдено")
+                return None
+
     except Exception as e:
         logging.error(f"Ошибка загрузки: {e}")
         return None
