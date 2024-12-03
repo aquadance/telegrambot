@@ -1,3 +1,9 @@
+#!/bin/bash
+# Обновляем пакеты и устанавливаем FFmpeg
+apt-get update && apt-get install -y ffmpeg
+
+# Запускаем бота
+python bot.py
 import os
 import subprocess
 
